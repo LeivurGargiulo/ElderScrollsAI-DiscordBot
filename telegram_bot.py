@@ -2,6 +2,10 @@ import logging
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 import asyncio
+import nest_asyncio
+
+# Patch asyncio to allow nested event loops
+nest_asyncio.apply()
 
 from config import Config
 from online_search import OnlineSearchEngine
