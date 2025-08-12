@@ -1,0 +1,231 @@
+import requests
+import json
+import subprocess
+import logging
+from abc import ABC, abstractmethod
+from typing import Optional, Dict, Any
+
+from config import Config, LLMBackend
+
+logger = logging.getLogger(__name__)
+
+class LLMClient(ABC):
+    """Abstract base class for LLM clients"""
+    
+    @abstractmethod
+    def generate_response(self, prompt: str) -> str:
+        """Generate a response for the given prompt"""
+        pass
+
+class OpenRouterClient(LLMClient):
+    """Client for OpenRouter API"""
+    
+    def __init__(self):
+        self.api_key = Config.OPENROUTER_API_KEY
+        self.base_url = Config.OPENROUTER_BASE_URL
+        self.model = Config.OPENROUTER_MODEL
+        
+        if not self.api_key:
+            raise ValueError("OpenRouter API key is required")
+    
+    def generate_response(self, prompt: str) -> str:
+        """Generate response using OpenRouter API"""
+        try:
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://github.com/elder-scrolls-lore-bot",
+                "X-Title": "Elder Scrolls Lore Bot"
+            }
+            
+            payload = {
+                "model": self.model,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "You are an expert on The Elder Scrolls universe. Answer questions based on the provided lore context. Be accurate, concise, and engaging. If the context doesn't contain relevant information, politely say so."
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                "max_tokens": 1000,
+                "temperature": 0.7
+            }
+            
+            response = requests.post(
+                f"{self.base_url}/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return result["choices"][0]["message"]["content"]
+            else:
+                logger.error(f"OpenRouter API error: {response.status_code} - {response.text}")
+                return "Sorry, I'm having trouble connecting to my knowledge base right now."
+                
+        except requests.exceptions.RequestException as e:
+            logger.error(f"OpenRouter API request failed: {e}")
+            return "Sorry, I'm having trouble connecting to my knowledge base right now."
+        except Exception as e:
+            logger.error(f"OpenRouter API error: {e}")
+            return "Sorry, I encountered an error while processing your request."
+
+class OllamaClient(LLMClient):
+    """Client for Ollama local LLM"""
+    
+    def __init__(self):
+        self.base_url = Config.OLLAMA_BASE_URL
+        self.model = Config.OLLAMA_MODEL
+    
+    def generate_response(self, prompt: str) -> str:
+        """Generate response using Ollama API"""
+        try:
+            headers = {
+                "Content-Type": "application/json"
+            }
+            
+            payload = {
+                "model": self.model,
+                "prompt": f"""You are an expert on The Elder Scrolls universe. Answer questions based on the provided lore context. Be accurate, concise, and engaging. If the context doesn't contain relevant information, politely say so.
+
+Context: {prompt}
+
+Answer:""",
+                "stream": False,
+                "options": {
+                    "temperature": 0.7,
+                    "num_predict": 1000
+                }
+            }
+            
+            response = requests.post(
+                f"{self.base_url}/api/generate",
+                headers=headers,
+                json=payload,
+                timeout=60
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return result["response"]
+            else:
+                logger.error(f"Ollama API error: {response.status_code} - {response.text}")
+                return "Sorry, I'm having trouble connecting to my local knowledge base right now."
+                
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Ollama API request failed: {e}")
+            return "Sorry, I'm having trouble connecting to my local knowledge base right now."
+        except Exception as e:
+            logger.error(f"Ollama API error: {e}")
+            return "Sorry, I encountered an error while processing your request."
+
+class LMStudioClient(LLMClient):
+    """Client for LM Studio local LLM"""
+    
+    def __init__(self):
+        self.base_url = Config.LM_STUDIO_BASE_URL
+        self.model = Config.LM_STUDIO_MODEL
+    
+    def generate_response(self, prompt: str) -> str:
+        """Generate response using LM Studio API"""
+        try:
+            headers = {
+                "Content-Type": "application/json"
+            }
+            
+            payload = {
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "You are an expert on The Elder Scrolls universe. Answer questions based on the provided lore context. Be accurate, concise, and engaging. If the context doesn't contain relevant information, politely say so."
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                "temperature": 0.7,
+                "max_tokens": 1000,
+                "stream": False
+            }
+            
+            response = requests.post(
+                f"{self.base_url}/v1/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=60
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return result["choices"][0]["message"]["content"]
+            else:
+                logger.error(f"LM Studio API error: {response.status_code} - {response.text}")
+                return "Sorry, I'm having trouble connecting to my local knowledge base right now."
+                
+        except requests.exceptions.RequestException as e:
+            logger.error(f"LM Studio API request failed: {e}")
+            return "Sorry, I'm having trouble connecting to my local knowledge base right now."
+        except Exception as e:
+            logger.error(f"LM Studio API error: {e}")
+            return "Sorry, I encountered an error while processing your request."
+
+class LLMClientFactory:
+    """Factory for creating LLM clients based on configuration"""
+    
+    @staticmethod
+    def create_client() -> LLMClient:
+        """Create and return the appropriate LLM client based on configuration"""
+        backend = Config.get_llm_backend()
+        
+        if backend == LLMBackend.OPENROUTER:
+            return OpenRouterClient()
+        elif backend == LLMBackend.OLLAMA:
+            return OllamaClient()
+        elif backend == LLMBackend.LM_STUDIO:
+            return LMStudioClient()
+        else:
+            raise ValueError(f"Unsupported LLM backend: {backend}")
+
+class RAGProcessor:
+    """Handles RAG (Retrieval-Augmented Generation) processing"""
+    
+    def __init__(self, llm_client: LLMClient):
+        self.llm_client = llm_client
+    
+    def create_rag_prompt(self, question: str, context_passages: list) -> str:
+        """Create a RAG prompt with question and retrieved context"""
+        if not context_passages:
+            return f"Question: {question}\n\nI don't have any relevant information about this in my Elder Scrolls knowledge base."
+        
+        context_text = "\n\n".join([f"Context {i+1}: {passage}" for i, (passage, score) in enumerate(context_passages)])
+        
+        prompt = f"""Based on the following Elder Scrolls lore context, please answer the question. If the context doesn't contain relevant information, politely say so.
+
+{context_text}
+
+Question: {question}
+
+Please provide a clear, accurate, and engaging answer based on the Elder Scrolls lore."""
+        
+        return prompt
+    
+    def process_question(self, question: str, context_passages: list) -> str:
+        """Process a question using RAG"""
+        try:
+            # Create RAG prompt
+            prompt = self.create_rag_prompt(question, context_passages)
+            
+            # Generate response using LLM
+            response = self.llm_client.generate_response(prompt)
+            
+            return response
+            
+        except Exception as e:
+            logger.error(f"RAG processing failed: {e}")
+            return "Sorry, I encountered an error while processing your question. Please try again."
