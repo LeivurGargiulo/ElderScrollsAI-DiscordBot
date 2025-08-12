@@ -32,7 +32,7 @@ class Config:
     LM_STUDIO_BASE_URL = os.getenv("LM_STUDIO_BASE_URL", "http://localhost:1234")
     LM_STUDIO_MODEL = os.getenv("LM_STUDIO_MODEL", "default")
     
-    # Dataset Configuration
+    # Dataset Configuration (for Hugging Face Datasets API)
     DATASET_NAME = "RoyalCities/Elder_Scrolls_Wiki_Dataset"
     EMBEDDING_MODEL = "all-MiniLM-L6-v2"
     TOP_K_RESULTS = 3
@@ -41,6 +41,27 @@ class Config:
     FAISS_INDEX_PATH = "elder_scrolls_index.faiss"
     EMBEDDINGS_PATH = "elder_scrolls_embeddings.npy"
     TEXTS_PATH = "elder_scrolls_texts.json"
+    
+    # Online Search Configuration
+    # Elder Scrolls Wiki API endpoints
+    UESP_API_BASE_URL = "https://en.uesp.net/api.php"
+    UESP_SEARCH_URL = "https://en.uesp.net/search.php"
+    
+    # Wikipedia API for Elder Scrolls content
+    WIKIPEDIA_API_BASE_URL = "https://en.wikipedia.org/api/rest_v1"
+    
+    # Rate limiting settings
+    REQUEST_DELAY = float(os.getenv("REQUEST_DELAY", "1.0"))  # seconds between requests
+    MAX_RETRIES = int(os.getenv("MAX_RETRIES", "3"))
+    REQUEST_TIMEOUT = int(os.getenv("REQUEST_TIMEOUT", "30"))
+    
+    # Search configuration
+    MAX_SEARCH_RESULTS = int(os.getenv("MAX_SEARCH_RESULTS", "5"))
+    MIN_CONTENT_LENGTH = int(os.getenv("MIN_CONTENT_LENGTH", "100"))
+    MAX_CONTENT_LENGTH = int(os.getenv("MAX_CONTENT_LENGTH", "2000"))
+    
+    # User agent for polite scraping
+    USER_AGENT = "ElderScrollsLoreBot/1.0 (Educational Bot; +https://github.com/elder-scrolls-lore-bot)"
     
     @classmethod
     def get_llm_backend(cls):

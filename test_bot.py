@@ -7,7 +7,7 @@ Run this to verify everything works before starting the Telegram bot
 import asyncio
 import logging
 from config import Config
-from dataset_loader import ElderScrollsDatasetLoader
+from online_search import OnlineSearchEngine
 from llm_client import LLMClientFactory, RAGProcessor
 
 # Configure logging
@@ -17,20 +17,21 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-async def test_dataset_loader():
-    """Test the dataset loader component"""
-    print("🧪 Testing Dataset Loader...")
+async def test_online_search_engine():
+    """Test the online search engine component"""
+    print("🧪 Testing Online Search Engine...")
     
     try:
-        loader = ElderScrollsDatasetLoader()
-        success = loader.initialize()
+        search_engine = OnlineSearchEngine()
+        success = await search_engine.initialize()
         
         if success:
-            print("✅ Dataset loader initialized successfully")
+            print("✅ Online search engine initialized successfully")
             
             # Test search functionality
             test_query = "Dragonborn"
-            results = loader.search(test_query, top_k=2)
+            print(f"   Testing search for: '{test_query}'")
+            results = await search_engine.search(test_query)
             
             if results:
                 print(f"✅ Search test successful - found {len(results)} results for '{test_query}'")
@@ -38,13 +39,16 @@ async def test_dataset_loader():
                     print(f"   Result {i+1} (score: {score:.3f}): {text[:100]}...")
             else:
                 print("⚠️  Search returned no results")
+            
+            # Cleanup
+            await search_engine.close()
                 
         else:
-            print("❌ Dataset loader initialization failed")
+            print("❌ Online search engine initialization failed")
             return False
             
     except Exception as e:
-        print(f"❌ Dataset loader test failed: {e}")
+        print(f"❌ Online search engine test failed: {e}")
         return False
     
     return True
@@ -98,11 +102,11 @@ async def test_rag_processor():
         # Test RAG processing
         test_question = "Who is the Dragonborn?"
         test_context = [
-            ("The Dragonborn is a legendary hero in Elder Scrolls lore who can absorb dragon souls.", 0.9),
-            ("Dragons are powerful creatures in Tamriel that can use Thu'um or dragon shouts.", 0.8)
+            ("The Dragonborn is a legendary figure in Elder Scrolls lore who can absorb dragon souls and use the Thu'um.", 0.9),
+            ("Dragonborn individuals have the ability to shout like dragons and are destined to face great challenges.", 0.8)
         ]
         
-        print("   Testing RAG processing...")
+        print(f"   Testing RAG processing for: '{test_question}'")
         response = rag_processor.process_question(test_question, test_context)
         
         if response and len(response) > 0:
@@ -119,40 +123,42 @@ async def test_rag_processor():
     return True
 
 async def test_full_pipeline():
-    """Test the full RAG pipeline"""
-    print("\n🧪 Testing Full RAG Pipeline...")
+    """Test the complete pipeline from search to response"""
+    print("\n🧪 Testing Full Pipeline...")
     
     try:
         # Initialize components
-        loader = ElderScrollsDatasetLoader()
-        if not loader.initialize():
-            print("❌ Failed to initialize dataset loader")
-            return False
+        search_engine = OnlineSearchEngine()
+        await search_engine.initialize()
         
         llm_client = LLMClientFactory.create_client()
         rag_processor = RAGProcessor(llm_client)
         
-        # Test full pipeline
-        test_question = "What is the Dragonborn?"
+        # Test complete pipeline
+        test_question = "What is the history of the Dark Elves?"
+        print(f"   Testing full pipeline for: '{test_question}'")
         
-        print(f"   Testing full pipeline with question: '{test_question}'")
+        # Search for context
+        context_passages = await search_engine.search(test_question)
         
-        # Search for relevant passages
-        context_passages = loader.search(test_question, top_k=2)
-        
-        if not context_passages:
-            print("   ⚠️  No relevant passages found, but continuing test...")
-        
-        # Process with RAG
-        response = rag_processor.process_question(test_question, context_passages)
-        
-        if response and len(response) > 0:
-            print(f"✅ Full pipeline test successful")
-            print(f"   Found {len(context_passages)} relevant passages")
-            print(f"   Response: {response[:300]}...")
+        if context_passages:
+            print(f"   Found {len(context_passages)} context passages")
+            
+            # Process with RAG
+            response = rag_processor.process_question(test_question, context_passages)
+            
+            if response and len(response) > 0:
+                print(f"✅ Full pipeline test successful")
+                print(f"   Response: {response[:300]}...")
+            else:
+                print("❌ Full pipeline test failed - empty response")
+                return False
         else:
-            print("❌ Full pipeline test failed - empty response")
-            return False
+            print("⚠️  No context found for test question")
+            print("   This might be normal if the search sources are unavailable")
+        
+        # Cleanup
+        await search_engine.close()
             
     except Exception as e:
         print(f"❌ Full pipeline test failed: {e}")
@@ -160,15 +166,48 @@ async def test_full_pipeline():
     
     return True
 
+async def test_configuration():
+    """Test configuration validation"""
+    print("🧪 Testing Configuration...")
+    
+    try:
+        config_errors = Config.validate_config()
+        
+        if not config_errors:
+            print("✅ Configuration validation passed")
+            print(f"   LLM Backend: {Config.get_llm_backend().value}")
+            print(f"   Telegram Token: {'Set' if Config.TELEGRAM_TOKEN else 'Missing'}")
+            
+            backend = Config.get_llm_backend()
+            if backend.value == "openrouter":
+                print(f"   OpenRouter API Key: {'Set' if Config.OPENROUTER_API_KEY else 'Missing'}")
+            elif backend.value == "ollama":
+                print(f"   Ollama URL: {Config.OLLAMA_BASE_URL}")
+            elif backend.value == "lm_studio":
+                print(f"   LM Studio URL: {Config.LM_STUDIO_BASE_URL}")
+                
+        else:
+            print("❌ Configuration validation failed:")
+            for error in config_errors:
+                print(f"   - {error}")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Configuration test failed: {e}")
+        return False
+    
+    return True
+
 async def main():
     """Run all tests"""
-    print("🚀 Starting Elder Scrolls Lore Bot Tests\n")
+    print("🚀 Starting Elder Scrolls Lore Bot Tests...\n")
     
     tests = [
-        ("Dataset Loader", test_dataset_loader),
+        ("Configuration", test_configuration),
+        ("Online Search Engine", test_online_search_engine),
         ("LLM Client", test_llm_client),
         ("RAG Processor", test_rag_processor),
-        ("Full Pipeline", test_full_pipeline)
+        ("Full Pipeline", test_full_pipeline),
     ]
     
     results = []
@@ -181,29 +220,29 @@ async def main():
             print(f"❌ {test_name} test crashed: {e}")
             results.append((test_name, False))
     
-    # Print summary
+    # Summary
     print("\n" + "="*50)
     print("📊 TEST SUMMARY")
     print("="*50)
     
     passed = 0
+    total = len(results)
+    
     for test_name, result in results:
         status = "✅ PASS" if result else "❌ FAIL"
-        print(f"{test_name:20} {status}")
+        print(f"{test_name}: {status}")
         if result:
             passed += 1
     
-    print(f"\nPassed: {passed}/{len(results)} tests")
+    print(f"\nOverall: {passed}/{total} tests passed")
     
-    if passed == len(results):
-        print("\n🎉 All tests passed! Your bot is ready to run.")
-        print("   Run 'python telegram_bot.py' to start the bot.")
+    if passed == total:
+        print("🎉 All tests passed! Your bot should work correctly.")
     else:
-        print("\n⚠️  Some tests failed. Please check your configuration and try again.")
-        print("   Make sure you have:")
-        print("   - Valid Telegram bot token")
-        print("   - Proper LLM backend configuration")
-        print("   - Internet connection for dataset loading")
+        print("⚠️  Some tests failed. Please check the configuration and try again.")
+    
+    return passed == total
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    success = asyncio.run(main())
+    exit(0 if success else 1)

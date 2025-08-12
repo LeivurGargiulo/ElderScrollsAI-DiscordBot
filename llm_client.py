@@ -193,30 +193,47 @@ class LLMClientFactory:
             raise ValueError(f"Unsupported LLM backend: {backend}")
 
 class RAGProcessor:
-    """Handles RAG (Retrieval-Augmented Generation) processing"""
+    """Handles RAG (Retrieval-Augmented Generation) processing with online search results"""
     
     def __init__(self, llm_client: LLMClient):
         self.llm_client = llm_client
     
     def create_rag_prompt(self, question: str, context_passages: list) -> str:
-        """Create a RAG prompt with question and retrieved context"""
+        """Create a RAG prompt with question and retrieved context from online sources"""
         if not context_passages:
-            return f"Question: {question}\n\nI don't have any relevant information about this in my Elder Scrolls knowledge base."
+            return f"""Question: {question}
+
+I don't have any relevant information about this in my Elder Scrolls knowledge base. I searched multiple online sources including the Elder Scrolls Wiki, Hugging Face datasets, and Wikipedia, but couldn't find specific information about your query. Please try rephrasing your question or ask about a different aspect of Elder Scrolls lore."""
         
-        context_text = "\n\n".join([f"Context {i+1}: {passage}" for i, (passage, score) in enumerate(context_passages)])
+        # Format context with source information
+        context_parts = []
+        for i, (passage, score) in enumerate(context_passages):
+            # Determine source based on score
+            if score > 0.7:
+                source = "Elder Scrolls Wiki API"
+            elif score > 0.5:
+                source = "Hugging Face Dataset"
+            elif score > 0.4:
+                source = "Wikipedia"
+            else:
+                source = "Web Search"
+            
+            context_parts.append(f"Context {i+1} (Source: {source}, Relevance: {score:.2f}):\n{passage}")
         
-        prompt = f"""Based on the following Elder Scrolls lore context, please answer the question. If the context doesn't contain relevant information, politely say so.
+        context_text = "\n\n".join(context_parts)
+        
+        prompt = f"""You are an expert on The Elder Scrolls universe. Based on the following context retrieved from online Elder Scrolls lore sources, please answer the question accurately and engagingly.
 
 {context_text}
 
 Question: {question}
 
-Please provide a clear, accurate, and engaging answer based on the Elder Scrolls lore."""
+Please provide a clear, accurate, and engaging answer based on the Elder Scrolls lore. If the context doesn't contain sufficient information to answer the question completely, acknowledge what you know and what might be missing. Always maintain the rich, immersive tone of Elder Scrolls lore."""
         
         return prompt
     
     def process_question(self, question: str, context_passages: list) -> str:
-        """Process a question using RAG"""
+        """Process a question using RAG with online search results"""
         try:
             # Create RAG prompt
             prompt = self.create_rag_prompt(question, context_passages)

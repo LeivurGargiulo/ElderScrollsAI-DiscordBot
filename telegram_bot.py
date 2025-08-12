@@ -4,7 +4,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 import asyncio
 
 from config import Config
-from dataset_loader import ElderScrollsDatasetLoader
+from online_search import OnlineSearchEngine
 from llm_client import LLMClientFactory, RAGProcessor
 
 # Configure logging
@@ -15,22 +15,22 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class ElderScrollsLoreBot:
-    """Main Telegram bot class for Elder Scrolls Lore Bot"""
+    """Main Telegram bot class for Elder Scrolls Lore Bot with online search capabilities"""
     
     def __init__(self):
-        self.dataset_loader = None
+        self.search_engine = None
         self.rag_processor = None
         self.initialized = False
         
     async def initialize(self):
         """Initialize the bot components"""
         try:
-            logger.info("Initializing Elder Scrolls Lore Bot...")
+            logger.info("Initializing Elder Scrolls Lore Bot with online search...")
             
-            # Initialize dataset loader
-            self.dataset_loader = ElderScrollsDatasetLoader()
-            if not self.dataset_loader.initialize():
-                logger.error("Failed to initialize dataset loader")
+            # Initialize online search engine
+            self.search_engine = OnlineSearchEngine()
+            if not await self.search_engine.initialize():
+                logger.error("Failed to initialize online search engine")
                 return False
             
             # Initialize LLM client and RAG processor
@@ -44,6 +44,11 @@ class ElderScrollsLoreBot:
         except Exception as e:
             logger.error(f"Bot initialization failed: {e}")
             return False
+    
+    async def cleanup(self):
+        """Cleanup resources when bot shuts down"""
+        if self.search_engine:
+            await self.search_engine.close()
     
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /start command"""
@@ -85,6 +90,11 @@ Use /help for more information.
 • `/ask Tell me about the Thalmor`
 • `/ask What are the Nine Divines?`
 
+**Features:**
+• 🔍 **Online Search**: Searches multiple sources including Elder Scrolls Wiki, Hugging Face datasets, and Wikipedia
+• 🤖 **AI-Powered**: Uses advanced language models for accurate and engaging responses
+• ⚡ **Real-time**: Gets the latest information from online sources
+
 **Tips:**
 • Be specific in your questions for better answers
 • I can answer questions about characters, locations, events, magic, and more
@@ -119,11 +129,11 @@ Happy exploring, traveler! 🗡️⚔️
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
         
         try:
-            # Search for relevant passages
-            context_passages = self.dataset_loader.search(question)
+            # Search for relevant passages using online search engine
+            context_passages = await self.search_engine.search(question)
             
             if not context_passages:
-                response = "🤔 Hmm, I couldn't find anything on that in the Elder Scrolls lore. Could you try rephrasing your question or ask about something else?"
+                response = "🤔 I searched multiple online sources but couldn't find specific information about that in the Elder Scrolls lore. Could you try rephrasing your question or ask about something else?"
             else:
                 # Process question using RAG
                 response = self.rag_processor.process_question(question, context_passages)
@@ -151,11 +161,11 @@ Happy exploring, traveler! 🗡️⚔️
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
         
         try:
-            # Search for relevant passages
-            context_passages = self.dataset_loader.search(question)
+            # Search for relevant passages using online search engine
+            context_passages = await self.search_engine.search(question)
             
             if not context_passages:
-                response = "🤔 Hmm, I couldn't find anything on that in the Elder Scrolls lore. Could you try rephrasing your question or ask about something else?"
+                response = "🤔 I searched multiple online sources but couldn't find specific information about that in the Elder Scrolls lore. Could you try rephrasing your question or ask about something else?"
             else:
                 # Process question using RAG
                 response = self.rag_processor.process_question(question, context_passages)
@@ -210,9 +220,16 @@ async def main():
     # Add error handler
     application.add_error_handler(bot.error_handler)
     
-    # Start the bot
-    logger.info("Starting Elder Scrolls Lore Bot...")
-    await application.run_polling(allowed_updates=Update.ALL_TYPES)
+    try:
+        # Start the bot
+        logger.info("Starting Elder Scrolls Lore Bot with online search capabilities...")
+        await application.run_polling(allowed_updates=Update.ALL_TYPES)
+    except KeyboardInterrupt:
+        logger.info("Bot shutdown requested...")
+    finally:
+        # Cleanup resources
+        await bot.cleanup()
+        logger.info("Bot shutdown complete.")
 
 if __name__ == "__main__":
     asyncio.run(main())
