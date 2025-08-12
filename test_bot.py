@@ -6,6 +6,11 @@ Run this to verify everything works before starting the Telegram bot
 
 import asyncio
 import logging
+import nest_asyncio
+
+# Patch asyncio to allow nested event loops
+nest_asyncio.apply()
+
 from config import Config
 from online_search import OnlineSearchEngine
 from llm_client import LLMClientFactory, RAGProcessor
