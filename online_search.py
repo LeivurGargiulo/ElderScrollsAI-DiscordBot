@@ -1,6 +1,5 @@
 import asyncio
 import aiohttp
-import requests
 import json
 import time
 import logging
@@ -27,9 +26,9 @@ class OnlineSearchEngine:
     async def initialize(self):
         """Initialize the search engine"""
         try:
-            # Initialize embedding model for similarity search
+            # Initialize embedding model for similarity search (run in thread to avoid blocking)
             logger.info(f"Loading embedding model: {Config.EMBEDDING_MODEL}")
-            self.embedding_model = SentenceTransformer(Config.EMBEDDING_MODEL)
+            self.embedding_model = await asyncio.to_thread(SentenceTransformer, Config.EMBEDDING_MODEL)
             
             # Initialize aiohttp session for async requests
             self.session = aiohttp.ClientSession(
@@ -64,8 +63,8 @@ class OnlineSearchEngine:
             
             logger.info(f"Searching Hugging Face dataset for: {query}")
             
-            # Load dataset from Hugging Face
-            dataset = load_dataset(Config.DATASET_NAME)
+            # Load dataset from Hugging Face (run in thread to avoid blocking)
+            dataset = await asyncio.to_thread(load_dataset, Config.DATASET_NAME)
             
             # Extract text passages
             texts = []
@@ -90,9 +89,9 @@ class OnlineSearchEngine:
                 logger.warning("No texts found in Hugging Face dataset")
                 return []
             
-            # Create embeddings for query and texts
-            query_embedding = self.embedding_model.encode([query])
-            text_embeddings = self.embedding_model.encode(texts)
+            # Create embeddings for query and texts (run in thread to avoid blocking)
+            query_embedding = await asyncio.to_thread(self.embedding_model.encode, [query])
+            text_embeddings = await asyncio.to_thread(self.embedding_model.encode, texts)
             
             # Calculate similarities
             similarities = np.dot(text_embeddings, query_embedding.T).flatten()

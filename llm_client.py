@@ -1,4 +1,4 @@
-import requests
+import aiohttp
 import json
 import subprocess
 import logging
@@ -13,7 +13,7 @@ class LLMClient(ABC):
     """Abstract base class for LLM clients"""
     
     @abstractmethod
-    def generate_response(self, prompt: str) -> str:
+    async def generate_response(self, prompt: str) -> str:
         """Generate a response for the given prompt"""
         pass
 
@@ -28,7 +28,7 @@ class OpenRouterClient(LLMClient):
         if not self.api_key:
             raise ValueError("OpenRouter API key is required")
     
-    def generate_response(self, prompt: str) -> str:
+    async def generate_response(self, prompt: str) -> str:
         """Generate response using OpenRouter API"""
         try:
             headers = {
@@ -54,21 +54,22 @@ class OpenRouterClient(LLMClient):
                 "temperature": 0.7
             }
             
-            response = requests.post(
-                f"{self.base_url}/chat/completions",
-                headers=headers,
-                json=payload,
-                timeout=30
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                return result["choices"][0]["message"]["content"]
-            else:
-                logger.error(f"OpenRouter API error: {response.status_code} - {response.text}")
-                return "Sorry, I'm having trouble connecting to my knowledge base right now."
+            timeout = aiohttp.ClientTimeout(total=30)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.post(
+                    f"{self.base_url}/chat/completions",
+                    headers=headers,
+                    json=payload
+                ) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        return result["choices"][0]["message"]["content"]
+                    else:
+                        error_text = await response.text()
+                        logger.error(f"OpenRouter API error: {response.status} - {error_text}")
+                        return "Sorry, I'm having trouble connecting to my knowledge base right now."
                 
-        except requests.exceptions.RequestException as e:
+        except aiohttp.ClientError as e:
             logger.error(f"OpenRouter API request failed: {e}")
             return "Sorry, I'm having trouble connecting to my knowledge base right now."
         except Exception as e:
@@ -82,7 +83,7 @@ class OllamaClient(LLMClient):
         self.base_url = Config.OLLAMA_BASE_URL
         self.model = Config.OLLAMA_MODEL
     
-    def generate_response(self, prompt: str) -> str:
+    async def generate_response(self, prompt: str) -> str:
         """Generate response using Ollama API"""
         try:
             headers = {
@@ -103,21 +104,22 @@ Answer:""",
                 }
             }
             
-            response = requests.post(
-                f"{self.base_url}/api/generate",
-                headers=headers,
-                json=payload,
-                timeout=60
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                return result["response"]
-            else:
-                logger.error(f"Ollama API error: {response.status_code} - {response.text}")
-                return "Sorry, I'm having trouble connecting to my local knowledge base right now."
+            timeout = aiohttp.ClientTimeout(total=60)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.post(
+                    f"{self.base_url}/api/generate",
+                    headers=headers,
+                    json=payload
+                ) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        return result["response"]
+                    else:
+                        error_text = await response.text()
+                        logger.error(f"Ollama API error: {response.status} - {error_text}")
+                        return "Sorry, I'm having trouble connecting to my local knowledge base right now."
                 
-        except requests.exceptions.RequestException as e:
+        except aiohttp.ClientError as e:
             logger.error(f"Ollama API request failed: {e}")
             return "Sorry, I'm having trouble connecting to my local knowledge base right now."
         except Exception as e:
@@ -131,7 +133,7 @@ class LMStudioClient(LLMClient):
         self.base_url = Config.LM_STUDIO_BASE_URL
         self.model = Config.LM_STUDIO_MODEL
     
-    def generate_response(self, prompt: str) -> str:
+    async def generate_response(self, prompt: str) -> str:
         """Generate response using LM Studio API"""
         try:
             headers = {
@@ -154,21 +156,22 @@ class LMStudioClient(LLMClient):
                 "stream": False
             }
             
-            response = requests.post(
-                f"{self.base_url}/v1/chat/completions",
-                headers=headers,
-                json=payload,
-                timeout=60
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                return result["choices"][0]["message"]["content"]
-            else:
-                logger.error(f"LM Studio API error: {response.status_code} - {response.text}")
-                return "Sorry, I'm having trouble connecting to my local knowledge base right now."
+            timeout = aiohttp.ClientTimeout(total=60)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.post(
+                    f"{self.base_url}/v1/chat/completions",
+                    headers=headers,
+                    json=payload
+                ) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        return result["choices"][0]["message"]["content"]
+                    else:
+                        error_text = await response.text()
+                        logger.error(f"LM Studio API error: {response.status} - {error_text}")
+                        return "Sorry, I'm having trouble connecting to my local knowledge base right now."
                 
-        except requests.exceptions.RequestException as e:
+        except aiohttp.ClientError as e:
             logger.error(f"LM Studio API request failed: {e}")
             return "Sorry, I'm having trouble connecting to my local knowledge base right now."
         except Exception as e:
@@ -232,14 +235,14 @@ Please provide a clear, accurate, and engaging answer based on the Elder Scrolls
         
         return prompt
     
-    def process_question(self, question: str, context_passages: list) -> str:
+    async def process_question(self, question: str, context_passages: list) -> str:
         """Process a question using RAG with online search results"""
         try:
             # Create RAG prompt
             prompt = self.create_rag_prompt(question, context_passages)
             
             # Generate response using LLM
-            response = self.llm_client.generate_response(prompt)
+            response = await self.llm_client.generate_response(prompt)
             
             return response
             

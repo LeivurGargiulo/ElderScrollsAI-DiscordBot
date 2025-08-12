@@ -55,6 +55,10 @@ class Config:
     MAX_RETRIES = int(os.getenv("MAX_RETRIES", "3"))
     REQUEST_TIMEOUT = int(os.getenv("REQUEST_TIMEOUT", "30"))
     
+    # Bot timeout settings
+    SEARCH_TIMEOUT = float(os.getenv("SEARCH_TIMEOUT", "45.0"))  # seconds for search operations
+    LLM_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "30.0"))  # seconds for LLM responses
+    
     # Search configuration
     MAX_SEARCH_RESULTS = int(os.getenv("MAX_SEARCH_RESULTS", "5"))
     MIN_CONTENT_LENGTH = int(os.getenv("MIN_CONTENT_LENGTH", "100"))
