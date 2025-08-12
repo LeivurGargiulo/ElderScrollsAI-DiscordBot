@@ -59,6 +59,17 @@ class Config:
     SEARCH_TIMEOUT = float(os.getenv("SEARCH_TIMEOUT", "45.0"))  # seconds for search operations
     LLM_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "30.0"))  # seconds for LLM responses
     
+    # Telegram API timeout settings
+    TELEGRAM_READ_TIMEOUT = int(os.getenv("TELEGRAM_READ_TIMEOUT", "30"))  # seconds for read operations
+    TELEGRAM_WRITE_TIMEOUT = int(os.getenv("TELEGRAM_WRITE_TIMEOUT", "30"))  # seconds for write operations
+    TELEGRAM_CONNECT_TIMEOUT = int(os.getenv("TELEGRAM_CONNECT_TIMEOUT", "30"))  # seconds for connection
+    TELEGRAM_POOL_TIMEOUT = int(os.getenv("TELEGRAM_POOL_TIMEOUT", "30"))  # seconds for pool operations
+    
+    # Retry settings
+    MAX_RETRY_ATTEMPTS = int(os.getenv("MAX_RETRY_ATTEMPTS", "2"))  # number of retry attempts
+    RETRY_BASE_DELAY = float(os.getenv("RETRY_BASE_DELAY", "1.0"))  # base delay for retries
+    RETRY_MAX_DELAY = float(os.getenv("RETRY_MAX_DELAY", "10.0"))  # maximum delay for retries
+    
     # Search configuration
     MAX_SEARCH_RESULTS = int(os.getenv("MAX_SEARCH_RESULTS", "5"))
     MIN_CONTENT_LENGTH = int(os.getenv("MIN_CONTENT_LENGTH", "100"))

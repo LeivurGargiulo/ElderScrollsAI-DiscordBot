@@ -3,6 +3,8 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 import asyncio
 import nest_asyncio
+import time
+from functools import wraps
 
 # Patch asyncio to allow nested event loops
 nest_asyncio.apply()
@@ -17,6 +19,30 @@ logging.basicConfig(
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
+
+def retry_with_backoff(max_retries=3, base_delay=1.0, max_delay=10.0):
+    """Decorator to retry async functions with exponential backoff"""
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            last_exception = None
+            for attempt in range(max_retries + 1):
+                try:
+                    return await func(*args, **kwargs)
+                except Exception as e:
+                    last_exception = e
+                    if attempt == max_retries:
+                        logger.error(f"Final attempt failed for {func.__name__}: {e}")
+                        raise
+                    
+                    # Calculate delay with exponential backoff
+                    delay = min(base_delay * (2 ** attempt), max_delay)
+                    logger.warning(f"Attempt {attempt + 1} failed for {func.__name__}: {e}. Retrying in {delay:.1f}s...")
+                    await asyncio.sleep(delay)
+            
+            raise last_exception
+        return wrapper
+    return decorator
 
 class ElderScrollsLoreBot:
     """Main Telegram bot class for Elder Scrolls Lore Bot with online search capabilities"""
@@ -54,6 +80,16 @@ class ElderScrollsLoreBot:
         if self.search_engine:
             await self.search_engine.close()
     
+    @retry_with_backoff(max_retries=Config.MAX_RETRY_ATTEMPTS, base_delay=Config.RETRY_BASE_DELAY, max_delay=Config.RETRY_MAX_DELAY)
+    async def safe_reply(self, message, text, **kwargs):
+        """Safely send a reply with retry logic"""
+        return await message.reply_text(text, **kwargs)
+    
+    @retry_with_backoff(max_retries=Config.MAX_RETRY_ATTEMPTS, base_delay=Config.RETRY_BASE_DELAY, max_delay=Config.RETRY_MAX_DELAY)
+    async def safe_send_chat_action(self, bot, chat_id, action):
+        """Safely send chat action with retry logic"""
+        return await bot.send_chat_action(chat_id=chat_id, action=action)
+    
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /start command"""
         welcome_message = """
@@ -76,7 +112,7 @@ Example: `/ask Who is Tiber Septim?`
 Use /help for more information.
         """
         
-        await update.message.reply_text(welcome_message, parse_mode='Markdown')
+        await self.safe_reply(update.message, welcome_message, parse_mode='Markdown')
     
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /help command"""
@@ -109,19 +145,21 @@ Use /help for more information.
 Happy exploring, traveler! 🗡️⚔️
         """.format(backend=Config.get_llm_backend().value)
         
-        await update.message.reply_text(help_message, parse_mode='Markdown')
+        await self.safe_reply(update.message, help_message, parse_mode='Markdown')
     
     async def ask_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /ask command"""
         if not self.initialized:
-            await update.message.reply_text(
+            await self.safe_reply(
+                update.message,
                 "⚠️ Bot is still initializing. Please wait a moment and try again."
             )
             return
         
         # Extract question from command
         if not context.args:
-            await update.message.reply_text(
+            await self.safe_reply(
+                update.message,
                 "❓ Please provide a question after /ask.\n\nExample: `/ask Who is Tiber Septim?`",
                 parse_mode='Markdown'
             )
@@ -130,7 +168,7 @@ Happy exploring, traveler! 🗡️⚔️
         question = " ".join(context.args)
         
         # Send typing indicator
-        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+        await self.safe_send_chat_action(context.bot, update.effective_chat.id, "typing")
         
         try:
             # Search for relevant passages using online search engine with timeout
@@ -148,24 +186,27 @@ Happy exploring, traveler! 🗡️⚔️
                     timeout=Config.LLM_TIMEOUT
                 )
             
-            # Send response
-            await update.message.reply_text(response)
+            # Send response with retry logic
+            await self.safe_reply(update.message, response)
             
         except asyncio.TimeoutError:
             logger.error(f"Timeout processing question '{question}'")
-            await update.message.reply_text(
+            await self.safe_reply(
+                update.message,
                 "⏰ Sorry, the request took too long to process. Please try again with a simpler question or try later."
             )
         except Exception as e:
             logger.error(f"Error processing question '{question}': {e}")
-            await update.message.reply_text(
+            await self.safe_reply(
+                update.message,
                 "❌ Sorry, I encountered an error while processing your question. Please try again later."
             )
     
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle regular messages (treat as questions)"""
         if not self.initialized:
-            await update.message.reply_text(
+            await self.safe_reply(
+                update.message,
                 "⚠️ Bot is still initializing. Please wait a moment and try again."
             )
             return
@@ -173,7 +214,7 @@ Happy exploring, traveler! 🗡️⚔️
         question = update.message.text
         
         # Send typing indicator
-        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+        await self.safe_send_chat_action(context.bot, update.effective_chat.id, "typing")
         
         try:
             # Search for relevant passages using online search engine with timeout
@@ -191,28 +232,38 @@ Happy exploring, traveler! 🗡️⚔️
                     timeout=Config.LLM_TIMEOUT
                 )
             
-            # Send response
-            await update.message.reply_text(response)
+            # Send response with retry logic
+            await self.safe_reply(update.message, response)
             
         except asyncio.TimeoutError:
             logger.error(f"Timeout processing message '{question}'")
-            await update.message.reply_text(
+            await self.safe_reply(
+                update.message,
                 "⏰ Sorry, the request took too long to process. Please try again with a simpler question or try later."
             )
         except Exception as e:
             logger.error(f"Error processing message '{question}': {e}")
-            await update.message.reply_text(
+            await self.safe_reply(
+                update.message,
                 "❌ Sorry, I encountered an error while processing your question. Please try again later."
             )
     
     async def error_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle errors"""
+        """Handle errors with improved resilience"""
         logger.error(f"Exception while handling an update: {context.error}")
         
+        # Only try to send error message if we have a valid update and message
         if update and update.effective_message:
-            await update.effective_message.reply_text(
-                "❌ An error occurred while processing your request. Please try again later."
-            )
+            try:
+                # Use retry logic for error message
+                await self.safe_reply(
+                    update.effective_message,
+                    "❌ An error occurred while processing your request. Please try again later."
+                )
+            except Exception as error_handler_error:
+                # If even the error handler fails, just log it and don't re-raise
+                logger.error(f"Error handler itself failed: {error_handler_error}")
+                # Don't re-raise to prevent cascading failures
 
 async def main():
     """Main function to run the bot"""
@@ -232,8 +283,16 @@ async def main():
         logger.error("Failed to initialize bot. Exiting.")
         return
     
-    # Create application
-    application = Application.builder().token(Config.TELEGRAM_TOKEN).build()
+    # Create application with increased timeout configuration
+    application = (
+        Application.builder()
+        .token(Config.TELEGRAM_TOKEN)
+        .read_timeout(Config.TELEGRAM_READ_TIMEOUT)
+        .write_timeout(Config.TELEGRAM_WRITE_TIMEOUT)
+        .connect_timeout(Config.TELEGRAM_CONNECT_TIMEOUT)
+        .pool_timeout(Config.TELEGRAM_POOL_TIMEOUT)
+        .build()
+    )
     
     # Add command handlers
     application.add_handler(CommandHandler("start", bot.start_command))
