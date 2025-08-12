@@ -143,7 +143,7 @@ def example_llm_only():
         
         # Direct LLM prompt
         prompt = """You are an expert on The Elder Scrolls universe. 
-        Please provide a brief overview of the different races in Tamriel."""
+        Please provide a brief overview of the different races in Tamriel. Provide direct, confident answers without mentioning what information may or may not be in the context."""
         
         print("Sending prompt to LLM...")
         response = llm_client.generate_response(prompt)

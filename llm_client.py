@@ -43,7 +43,7 @@ class OpenRouterClient(LLMClient):
                 "messages": [
                     {
                         "role": "system",
-                        "content": "You are an expert on The Elder Scrolls universe. Answer questions based on the provided lore context. Be accurate, concise, and engaging. If the context doesn't contain relevant information, politely say so."
+                        "content": "You are an expert on The Elder Scrolls universe. Answer questions based on the provided lore context. Be accurate, concise, and engaging. Provide direct, confident answers without mentioning what information may or may not be in the context."
                     },
                     {
                         "role": "user",
@@ -92,7 +92,7 @@ class OllamaClient(LLMClient):
             
             payload = {
                 "model": self.model,
-                "prompt": f"""You are an expert on The Elder Scrolls universe. Answer questions based on the provided lore context. Be accurate, concise, and engaging. If the context doesn't contain relevant information, politely say so.
+                "prompt": f"""You are an expert on The Elder Scrolls universe. Answer questions based on the provided lore context. Be accurate, concise, and engaging. Provide direct, confident answers without mentioning what information may or may not be in the context.
 
 Context: {prompt}
 
@@ -144,7 +144,7 @@ class LMStudioClient(LLMClient):
                 "messages": [
                     {
                         "role": "system",
-                        "content": "You are an expert on The Elder Scrolls universe. Answer questions based on the provided lore context. Be accurate, concise, and engaging. If the context doesn't contain relevant information, politely say so."
+                        "content": "You are an expert on The Elder Scrolls universe. Answer questions based on the provided lore context. Be accurate, concise, and engaging. Provide direct, confident answers without mentioning what information may or may not be in the context."
                     },
                     {
                         "role": "user",
@@ -231,7 +231,7 @@ I don't have any relevant information about this in my Elder Scrolls knowledge b
 
 Question: {question}
 
-Please provide a clear, accurate, and engaging answer based on the Elder Scrolls lore. If the context doesn't contain sufficient information to answer the question completely, acknowledge what you know and what might be missing. Always maintain the rich, immersive tone of Elder Scrolls lore."""
+Please provide a clear, accurate, and engaging answer based on the Elder Scrolls lore. Provide direct, confident answers without mentioning what information may or may not be in the context. Always maintain the rich, immersive tone of Elder Scrolls lore."""
         
         return prompt
     
