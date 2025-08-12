@@ -45,7 +45,7 @@ class Config:
     # Online Search Configuration
     # Elder Scrolls Wiki API endpoints
     UESP_API_BASE_URL = "https://en.uesp.net/api.php"
-    UESP_SEARCH_URL = "https://en.uesp.net/search.php"
+    UESP_SEARCH_URL = "https://en.uesp.net/wiki"
     
     # Wikipedia API for Elder Scrolls content
     WIKIPEDIA_API_BASE_URL = "https://en.wikipedia.org/api/rest_v1"

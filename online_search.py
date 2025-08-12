@@ -171,12 +171,31 @@ class OnlineSearchEngine:
                 user_agent=Config.USER_AGENT
             )
             
-            # Search for Elder Scrolls related pages
+            # Search for Elder Scrolls related pages using Wikipedia's search API
             search_query = f"Elder Scrolls {query}"
-            search_results = wiki.search(search_query, results=Config.MAX_SEARCH_RESULTS)
+            
+            # Use aiohttp to search Wikipedia directly since wikipediaapi doesn't have search
+            search_url = f"https://en.wikipedia.org/w/api.php"
+            params = {
+                'action': 'query',
+                'format': 'json',
+                'list': 'search',
+                'srsearch': search_query,
+                'srlimit': Config.MAX_SEARCH_RESULTS,
+                'srnamespace': 0  # Main namespace only
+            }
+            
+            async with self.session.get(search_url, params=params) as response:
+                if response.status != 200:
+                    logger.warning(f"Wikipedia search API returned status {response.status}")
+                    return []
+                
+                data = await response.json()
+                search_results = data.get('query', {}).get('search', [])
             
             results = []
-            for page_title in search_results:
+            for result in search_results:
+                page_title = result.get('title', '')
                 page = wiki.page(page_title)
                 if page.exists() and page.summary:
                     # Check if content is Elder Scrolls related
@@ -201,7 +220,7 @@ class OnlineSearchEngine:
             logger.info(f"Scraping UESP pages for: {query}")
             
             # First, search for relevant pages
-            search_url = f"{Config.UESP_SEARCH_URL}?search={quote(query)}"
+            search_url = f"https://en.uesp.net/search.php?search={quote(query)}"
             
             async with self.session.get(search_url) as response:
                 if response.status != 200:
