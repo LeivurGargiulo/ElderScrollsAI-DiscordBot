@@ -77,7 +77,7 @@ async def example_search_and_answer():
                 
                 # Generate answer
                 print("\n🤖 Generating answer...")
-                answer = rag_processor.process_question(question, context_passages)
+                answer = await rag_processor.process_question(question, context_passages)
                 
                 print(f"📝 Answer:")
                 print(f"{answer}")

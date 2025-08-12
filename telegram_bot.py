@@ -133,18 +133,29 @@ Happy exploring, traveler! 🗡️⚔️
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
         
         try:
-            # Search for relevant passages using online search engine
-            context_passages = await self.search_engine.search(question)
+            # Search for relevant passages using online search engine with timeout
+            context_passages = await asyncio.wait_for(
+                self.search_engine.search(question),
+                timeout=Config.SEARCH_TIMEOUT
+            )
             
             if not context_passages:
                 response = "🤔 I searched multiple online sources but couldn't find specific information about that in the Elder Scrolls lore. Could you try rephrasing your question or ask about something else?"
             else:
-                # Process question using RAG
-                response = self.rag_processor.process_question(question, context_passages)
+                # Process question using RAG with timeout
+                response = await asyncio.wait_for(
+                    self.rag_processor.process_question(question, context_passages),
+                    timeout=Config.LLM_TIMEOUT
+                )
             
             # Send response
             await update.message.reply_text(response)
             
+        except asyncio.TimeoutError:
+            logger.error(f"Timeout processing question '{question}'")
+            await update.message.reply_text(
+                "⏰ Sorry, the request took too long to process. Please try again with a simpler question or try later."
+            )
         except Exception as e:
             logger.error(f"Error processing question '{question}': {e}")
             await update.message.reply_text(
@@ -165,18 +176,29 @@ Happy exploring, traveler! 🗡️⚔️
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
         
         try:
-            # Search for relevant passages using online search engine
-            context_passages = await self.search_engine.search(question)
+            # Search for relevant passages using online search engine with timeout
+            context_passages = await asyncio.wait_for(
+                self.search_engine.search(question),
+                timeout=Config.SEARCH_TIMEOUT
+            )
             
             if not context_passages:
                 response = "🤔 I searched multiple online sources but couldn't find specific information about that in the Elder Scrolls lore. Could you try rephrasing your question or ask about something else?"
             else:
-                # Process question using RAG
-                response = self.rag_processor.process_question(question, context_passages)
+                # Process question using RAG with timeout
+                response = await asyncio.wait_for(
+                    self.rag_processor.process_question(question, context_passages),
+                    timeout=Config.LLM_TIMEOUT
+                )
             
             # Send response
             await update.message.reply_text(response)
             
+        except asyncio.TimeoutError:
+            logger.error(f"Timeout processing message '{question}'")
+            await update.message.reply_text(
+                "⏰ Sorry, the request took too long to process. Please try again with a simpler question or try later."
+            )
         except Exception as e:
             logger.error(f"Error processing message '{question}': {e}")
             await update.message.reply_text(

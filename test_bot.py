@@ -112,7 +112,7 @@ async def test_rag_processor():
         ]
         
         print(f"   Testing RAG processing for: '{test_question}'")
-        response = rag_processor.process_question(test_question, test_context)
+        response = await rag_processor.process_question(test_question, test_context)
         
         if response and len(response) > 0:
             print(f"✅ RAG processing test successful")
@@ -150,7 +150,7 @@ async def test_full_pipeline():
             print(f"   Found {len(context_passages)} context passages")
             
             # Process with RAG
-            response = rag_processor.process_question(test_question, context_passages)
+            response = await rag_processor.process_question(test_question, context_passages)
             
             if response and len(response) > 0:
                 print(f"✅ Full pipeline test successful")
