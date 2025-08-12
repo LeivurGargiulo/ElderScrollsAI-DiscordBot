@@ -13,8 +13,8 @@ class LLMBackend(Enum):
 class Config:
     """Configuration class for Elder Scrolls Lore Bot"""
     
-    # Telegram Bot Configuration
-    TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+    # Discord Bot Configuration
+    DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
     
     # LLM Backend Configuration
     LLM_BACKEND = os.getenv("LLM_BACKEND", "openrouter").lower()
@@ -59,12 +59,6 @@ class Config:
     SEARCH_TIMEOUT = float(os.getenv("SEARCH_TIMEOUT", "45.0"))  # seconds for search operations
     LLM_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "30.0"))  # seconds for LLM responses
     
-    # Telegram API timeout settings
-    TELEGRAM_READ_TIMEOUT = int(os.getenv("TELEGRAM_READ_TIMEOUT", "30"))  # seconds for read operations
-    TELEGRAM_WRITE_TIMEOUT = int(os.getenv("TELEGRAM_WRITE_TIMEOUT", "30"))  # seconds for write operations
-    TELEGRAM_CONNECT_TIMEOUT = int(os.getenv("TELEGRAM_CONNECT_TIMEOUT", "30"))  # seconds for connection
-    TELEGRAM_POOL_TIMEOUT = int(os.getenv("TELEGRAM_POOL_TIMEOUT", "30"))  # seconds for pool operations
-    
     # Retry settings
     MAX_RETRY_ATTEMPTS = int(os.getenv("MAX_RETRY_ATTEMPTS", "2"))  # number of retry attempts
     RETRY_BASE_DELAY = float(os.getenv("RETRY_BASE_DELAY", "1.0"))  # base delay for retries
@@ -92,8 +86,8 @@ class Config:
         """Validate that all required configuration is present"""
         errors = []
         
-        if not cls.TELEGRAM_TOKEN:
-            errors.append("TELEGRAM_TOKEN is required")
+        if not cls.DISCORD_TOKEN:
+            errors.append("DISCORD_TOKEN is required")
         
         backend = cls.get_llm_backend()
         if backend == LLMBackend.OPENROUTER and not cls.OPENROUTER_API_KEY:
